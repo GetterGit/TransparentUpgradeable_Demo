@@ -5,6 +5,7 @@ from brownie import (
     ProxyAdmin,
     TransparentUpgradeableProxy,
     Contract,
+    config,
 )
 from scripts.helpful_scripts import get_account, encode_function_data, upgrade
 
@@ -13,9 +14,15 @@ def main():
     account = get_account()
     print(f"Deploying to {network.show_active()} ...")
     # setting box as our implementation contract
-    box = Box.deploy({"from": account})
+    box = Box.deploy(
+        {"from": account},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
+    )
     # now, we need to hook up a proxy admin to our implementation contract
-    proxy_admin = ProxyAdmin.deploy({"from": account})
+    proxy_admin = ProxyAdmin.deploy(
+        {"from": account},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
+    )
     # now, we need to hook up both implementation contract and proxy admin contract to the actual proxy contract
     # proxy contracts don't have a constructor. Instead, they have an initializer function which we can choose from the existing functions.
     # the moment we deploy our proxy, we shall call the initializer function
@@ -31,6 +38,7 @@ def main():
         box_encoded_initializer_function,
         # sometimes, proxies have hard times figuring out the gas limit, so worthy to input it manually
         {"from": account, "gas_limit": 1000000},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
     )
     print(f"Proxy deployed to {proxy}, we can now upgrade to V2.")
     # now, we can start calling Box functions from the proxy contract
@@ -43,7 +51,10 @@ def main():
     print("=================================")
     # now, we can point to proxy and it's gonna be delegating to the most recent Box contract version given we set it as the actual implementation
     # for this, we need to upgrade the proxy to delegate to a new implementation
-    box_v2 = BoxV2.deploy({"from": account})
+    box_v2 = BoxV2.deploy(
+        {"from": account},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
+    )
     # !!! even though we updated the contract, the storage of the previous contract stayed in proxy - hence the current value would be one if we were to query it with retrieve()
     upgrade_tx = upgrade(
         account, proxy, box_v2.address, proxy_admin_contract=proxy_admin
